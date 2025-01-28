@@ -9151,6 +9151,7 @@ dependencies = [
  "rayon",
  "rustc-hash 2.1.0",
  "serde",
+ "smallvec",
  "tempfile",
  "thread_local",
  "twox-hash 2.0.1",
