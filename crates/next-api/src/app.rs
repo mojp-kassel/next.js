@@ -1237,7 +1237,7 @@ impl AppEndpoint {
             .layout_segment_client_chunks
             .values()
         {
-            entry_client_chunks.extend(chunks.await?.iter().copied());
+            entry_client_chunks.extend(chunks.iter().copied());
         }
         for (chunks, _) in client_references_chunks_ref
             .client_component_client_chunks
@@ -1721,10 +1721,9 @@ impl AppEndpoint {
 
                 let entry_chunk_group_idx = *module_graph
                     .chunk_group_info()
-                    .get_index_of(ChunkGroup::Entry {
-                        entries: [ResolvedVc::upcast(rsc_entry)].into_iter().collect(),
-                        ty: ChunkGroupType::Entry,
-                    })
+                    .get_index_of(ChunkGroup::Entry(
+                        [ResolvedVc::upcast(rsc_entry)].into_iter().collect(),
+                    ))
                     .await?;
 
                 async {
@@ -1743,6 +1742,7 @@ impl AppEndpoint {
                                 .await?
                                 .into_iter()
                                 .collect();
+
                             let chunk_group = chunking_context
                                 .chunk_group(
                                     AssetIdent::from_path(
