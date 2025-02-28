@@ -1439,6 +1439,8 @@ export default abstract class Server<
 
         const promises: Promise<void>[] = []
         for (const handler of handlers) {
+          // TODO: Store expired tags in ALS and discard cache entries with
+          // these tags.
           promises.push(handler.receiveExpiredTags(...expiredTags))
         }
 
