@@ -18,6 +18,7 @@ describe('persistent-caching', () => {
   }
 
   async function stop() {
+    console.log('stop')
     if (isNextDev) {
       // Give Persistent Cache time to write to disk
       await waitFor(10000)
@@ -30,8 +31,10 @@ describe('persistent-caching', () => {
       // TODO workaround for missing content hashing on output static files
       // Browser caching would break this test case, but we want to test persistent caching.
       process.env.NEXT_DEPLOYMENT_ID = '' + Date.now()
+      console.log('build')
       await next.build()
     }
+    console.log('start')
     await next.start()
   }
 
@@ -99,6 +102,7 @@ describe('persistent-caching', () => {
     await stop()
 
     async function checkChanges() {
+      console.log('checkChanges1')
       {
         const browser = await next.browser('/')
         expect(await browser.elementByCss('p').text()).toBe(
@@ -106,6 +110,7 @@ describe('persistent-caching', () => {
         )
         await browser.close()
       }
+      console.log('checkChanges2')
       {
         const browser = await next.browser('/client')
         expect(await browser.elementByCss('p').text()).toBe(
@@ -113,6 +118,7 @@ describe('persistent-caching', () => {
         )
         await browser.close()
       }
+      console.log('checkChanges3')
       {
         const browser = await next.browser('/pages')
         expect(await browser.elementByCss('p').text()).toBe(
@@ -120,7 +126,7 @@ describe('persistent-caching', () => {
         )
         await browser.close()
       }
-
+      console.log('checkChanges4')
       {
         const browser = await next.browser('/add-me')
         expect(await browser.elementByCss('p').text()).toBe(
@@ -130,6 +136,7 @@ describe('persistent-caching', () => {
       }
     }
 
+    let ok = false
     await next.patchFile(
       'pages/pages.tsx',
       (content) => {
@@ -156,6 +163,7 @@ describe('persistent-caching', () => {
                   await start()
                   await checkChanges()
                   await stop()
+                  ok = true
                 } finally {
                   await next.renameFolder('app/add-me', 'app/remove-me')
                 }
@@ -165,6 +173,7 @@ describe('persistent-caching', () => {
         )
       }
     )
+    if (!ok) await stop()
     await start()
   })
 })
