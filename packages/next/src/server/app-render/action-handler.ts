@@ -123,7 +123,9 @@ async function addRevalidationHeader(
   }
 ) {
   await Promise.all([
-    workStore.incrementalCache?.revalidateTag(workStore.revalidatedTags || []),
+    workStore.incrementalCache?.revalidateTag(
+      workStore.pendingRevalidatedTags || []
+    ),
     ...Object.values(workStore.pendingRevalidates || {}),
     ...(workStore.pendingRevalidateWrites || []),
   ])
@@ -141,7 +143,7 @@ async function addRevalidationHeader(
   // TODO-APP: Currently paths are treated as tags, so the second element of the tuple
   // is always empty.
 
-  const isTagRevalidated = workStore.revalidatedTags?.length ? 1 : 0
+  const isTagRevalidated = workStore.pendingRevalidatedTags?.length ? 1 : 0
   const isCookieRevalidated = getModifiedCookieValues(
     requestStore.mutableCookies
   ).length
@@ -319,10 +321,10 @@ async function createRedirectRenderResult(
       `${origin}${appRelativeRedirectUrl.pathname}${appRelativeRedirectUrl.search}`
     )
 
-    if (workStore.revalidatedTags) {
+    if (workStore.pendingRevalidatedTags) {
       forwardedHeaders.set(
         NEXT_CACHE_REVALIDATED_TAGS_HEADER,
-        workStore.revalidatedTags.join(',')
+        workStore.pendingRevalidatedTags.join(',')
       )
       forwardedHeaders.set(
         NEXT_CACHE_REVALIDATE_TAG_TOKEN_HEADER,
@@ -568,7 +570,7 @@ export async function handleAction({
         res.statusCode = 500
         await Promise.all([
           workStore.incrementalCache?.revalidateTag(
-            workStore.revalidatedTags || []
+            workStore.pendingRevalidatedTags || []
           ),
           ...Object.values(workStore.pendingRevalidates || {}),
           ...(workStore.pendingRevalidateWrites || []),
@@ -1017,7 +1019,7 @@ export async function handleAction({
       res.statusCode = 500
       await Promise.all([
         workStore.incrementalCache?.revalidateTag(
-          workStore.revalidatedTags || []
+          workStore.pendingRevalidatedTags || []
         ),
         ...Object.values(workStore.pendingRevalidates || {}),
         ...(workStore.pendingRevalidateWrites || []),
