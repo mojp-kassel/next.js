@@ -542,9 +542,8 @@ fn process_task_data<'a, B: ConcurrentWriteBatch<'a> + Send + Sync>(
     let handle = tokio::runtime::Handle::current();
     updates
         .into_par_iter()
-        .enumerate()
         .with_max_len(1)
-        .map(|(i, updates)| {
+        .map(|updates| {
             let _span = span.clone().entered();
             let _guard = handle.clone().enter();
             turbo_tasks_scope(turbo_tasks.clone(), || {
@@ -554,7 +553,6 @@ fn process_task_data<'a, B: ConcurrentWriteBatch<'a> + Send + Sync>(
                 {
                     let span = tracing::trace_span!(
                         "organize updates",
-                        i,
                         updates = updates.len(),
                         tasks = tracing::field::Empty
                     )
@@ -645,7 +643,6 @@ fn process_task_data<'a, B: ConcurrentWriteBatch<'a> + Send + Sync>(
                 {
                     let span = tracing::trace_span!(
                         "dedupe updates",
-                        i,
                         before = task_updates.len(),
                         after = tracing::field::Empty
                     )
@@ -664,7 +661,6 @@ fn process_task_data<'a, B: ConcurrentWriteBatch<'a> + Send + Sync>(
 
                 let span = tracing::trace_span!(
                     "restore, update and serialize",
-                    i,
                     tasks = task_updates.len(),
                     restored_tasks = tracing::field::Empty
                 )
