@@ -53,10 +53,7 @@ import {
 } from '../shared'
 import { RuntimeErrorHandler } from '../../errors/runtime-error-handler'
 import reportHmrLatency from '../utils/report-hmr-latency'
-import {
-  extractModulesFromTurbopackMessage,
-  TurbopackHmr,
-} from '../utils/turbopack-hot-reloader-common'
+import { TurbopackHmr } from '../utils/turbopack-hot-reloader-common'
 // This alternative WebpackDevServer combines the functionality of:
 // https://github.com/webpack/webpack-dev-server/blob/webpack-1/client/index.js
 // https://github.com/webpack/webpack/blob/webpack-1/hot/dev-server.js
@@ -132,7 +129,7 @@ function handleSuccess() {
 
   if (process.env.TURBOPACK) {
     const hmrUpdate = turbopackHmr!.onBuilt()
-    if (hmrUpdate != null) {
+    if (hmrUpdate != null && hmrUpdate.hasUpdates) {
       reportHmrLatency(
         sendMessage,
         [...hmrUpdate.updatedModules],
@@ -298,8 +295,8 @@ function processMessage(obj: HMR_ACTION_TYPES) {
         turbopackHmr!.onBuilding()
       } else {
         webpackStartMsSinceEpoch = Date.now()
+        console.log('[Fast Refresh] rebuilding')
       }
-      console.log('[Fast Refresh] rebuilding')
       break
     }
     case HMR_ACTIONS_SENT_TO_BROWSER.BUILT:
@@ -370,8 +367,6 @@ function processMessage(obj: HMR_ACTION_TYPES) {
       break
     }
     case HMR_ACTIONS_SENT_TO_BROWSER.TURBOPACK_MESSAGE: {
-      const updatedModules = extractModulesFromTurbopackMessage(obj.data)
-      onBeforeFastRefresh([...updatedModules])
       for (const listener of turbopackMessageListeners) {
         listener({
           type: HMR_ACTIONS_SENT_TO_BROWSER.TURBOPACK_MESSAGE,
