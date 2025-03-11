@@ -1014,11 +1014,7 @@ export async function handleAction({
         const actionMod = (await ComponentMod.__next_app__.require(
           actionModId
         )) as Record<string, (...args: unknown[]) => Promise<unknown>>
-        const actionHandler =
-          actionMod[
-            // `actionId` must exist if we got here, as otherwise `getActionModIdOrError` would have thrown earlier
-            actionId!
-          ]
+        const actionHandler = actionMod[actionId]
 
         let returnVal: unknown
         requestStore.phase = 'action'
@@ -1171,19 +1167,13 @@ export async function handleAction({
 }
 
 /**
- * Attempts to find the module ID for the action from the module map. When this fails, it could be a deployment skew where
- * the action came from a different deployment. It could also simply be an invalid POST request that is not a server action.
- * In either case, we'll throw an error to be handled by the caller.
+ * Attempts to find the module ID for the action from the module map.
+ * When this fails, it could be a deployment skew where the action came from a different deployment.
  */
 function getActionModIdOrError(
-  actionId: string | null,
+  actionId: string,
   serverModuleMap: ServerModuleMap
 ): string {
-  // if we're missing the action ID header, we can't do any further processing
-  if (!actionId) {
-    throw new Error("Invariant: Missing 'next-action' header.")
-  }
-
   let actionModId: string | undefined
   try {
     // `serverModuleMap` is a proxy (see: `createServerModuleMap`) which runs some lookup code,
