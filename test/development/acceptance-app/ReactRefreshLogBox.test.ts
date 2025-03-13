@@ -1317,7 +1317,7 @@ describe('ReactRefreshLogBox app', () => {
 
     await expect(browser).toDisplayRedbox(`
      {
-       "count": 1,
+       "count": 5,
        "description": "Error: Server component error!",
        "environmentLabel": "Server",
        "label": "Unhandled Runtime Error",
