@@ -855,7 +855,7 @@ impl AppProject {
                     // as part of rsc_entry
                     for module in server_component_entries
                         .iter()
-                        .take(server_component_entries.len() - 1)
+                        .take(server_component_entries.len().saturating_sub(1))
                     {
                         let graph = SingleModuleGraph::new_with_entries_visited_intern(
                             vec![(vec![ResolvedVc::upcast(*module)], ChunkGroupType::Entry)],
