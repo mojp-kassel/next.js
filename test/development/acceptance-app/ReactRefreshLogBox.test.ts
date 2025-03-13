@@ -957,7 +957,7 @@ describe('ReactRefreshLogBox app', () => {
            |           ^",
          "stack": [
            "{default export} index.js (3:11)",
-           "Page app/page.js (2:1)",
+           "Page app/page.js (4:10)",
          ],
        }
       `)
@@ -1317,7 +1317,7 @@ describe('ReactRefreshLogBox app', () => {
 
     await expect(browser).toDisplayRedbox(`
      {
-       "count": 5,
+       "count": 1,
        "description": "Error: Server component error!",
        "environmentLabel": "Server",
        "label": "Unhandled Runtime Error",
