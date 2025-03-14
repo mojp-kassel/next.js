@@ -1627,7 +1627,15 @@
       ],
       "failed": [
         "css-order turbo should load correct styles navigating back again pages-interleaved-b -> pages-interleaved-a -> pages-interleaved-b -> pages-interleaved-a",
-        "css-order turbo should load correct styles navigating pages-interleaved-b -> pages-interleaved-a"
+        "css-order turbo should load correct styles navigating back again pages-reversed-a -> pages-reversed-b -> pages-reversed-a -> pages-reversed-b",
+        "css-order turbo should load correct styles navigating back again pages-reversed-b -> pages-reversed-a -> pages-reversed-b -> pages-reversed-a",
+        "css-order turbo should load correct styles navigating back again pages-partial-reversed-a -> pages-partial-reversed-b -> pages-partial-reversed-a -> pages-partial-reversed-b",
+        "css-order turbo should load correct styles navigating back again pages-partial-reversed-b -> pages-partial-reversed-a -> pages-partial-reversed-b -> pages-reversed-a",
+        "css-order turbo should load correct styles navigating pages-interleaved-b -> pages-interleaved-a",
+        "css-order turbo should load correct styles navigating pages-reversed-a -> pages-reversed-b",
+        "css-order turbo should load correct styles navigating pages-reversed-b -> pages-reversed-a",
+        "css-order turbo should load correct styles navigating pages-partial-reversed-a -> pages-partial-reversed-b",
+        "css-order turbo should load correct styles navigating pages-partial-reversed-b -> pages-partial-reversed-a"
       ],
       "pending": [
         "css-order turbo should load correct styles navigating back again big-interleaved-a -> big-interleaved-b -> big-interleaved-a -> big-interleaved-b",
