@@ -12,12 +12,11 @@ use turbo_tasks::{
 };
 use turbo_tasks_fs::{File, FileSystemPath};
 use turbopack_core::{
-    asset::AssetContent,
+    asset::{Asset, AssetContent},
     output::{OutputAsset, OutputAssets},
-    virtual_output::VirtualOutputAsset,
 };
 
-use crate::next_config::{CrossOriginConfig, Rewrites, RouteHas};
+use crate::next_config::{CrossOriginConfig, RouteHas};
 
 #[derive(Serialize, Default, Debug)]
 pub struct PagesManifest {
@@ -25,20 +24,44 @@ pub struct PagesManifest {
     pub pages: FxIndexMap<RcStr, RcStr>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
+#[turbo_tasks::value(shared)]
 pub struct BuildManifest {
+    pub output_path: FileSystemPath,
+    pub client_relative_path: FileSystemPath,
+
     pub polyfill_files: Vec<ResolvedVc<Box<dyn OutputAsset>>>,
     pub root_main_files: Vec<ResolvedVc<Box<dyn OutputAsset>>>,
     pub pages: FxIndexMap<RcStr, ResolvedVc<OutputAssets>>,
 }
 
-impl BuildManifest {
-    pub async fn build_output(
-        self,
-        output_path: Vc<FileSystemPath>,
-        client_relative_path: Vc<FileSystemPath>,
-    ) -> Result<Vc<Box<dyn OutputAsset>>> {
-        let client_relative_path_ref = &*client_relative_path.await?;
+#[turbo_tasks::value_impl]
+impl OutputAsset for BuildManifest {
+    #[turbo_tasks::function]
+    async fn path(&self) -> Vc<FileSystemPath> {
+        self.output_path.clone().cell()
+    }
+
+    #[turbo_tasks::function]
+    async fn references(&self) -> Result<Vc<OutputAssets>> {
+        let chunks: Vec<ReadRef<OutputAssets>> = self.pages.values().try_join().await?;
+
+        let references = chunks
+            .into_iter()
+            .flat_map(|c| c.into_iter().copied()) // once again, rustc struggles here
+            .chain(self.root_main_files.iter().copied())
+            .chain(self.polyfill_files.iter().copied())
+            .collect();
+
+        Ok(Vc::cell(references))
+    }
+}
+
+#[turbo_tasks::value_impl]
+impl Asset for BuildManifest {
+    #[turbo_tasks::function]
+    async fn content(&self) -> Result<Vc<AssetContent>> {
+        let client_relative_path = &self.client_relative_path;
 
         #[derive(Serialize, Default, Debug)]
         #[serde(rename_all = "camelCase")]
@@ -62,9 +85,9 @@ impl BuildManifest {
                         .await?
                         .iter()
                         .copied()
-                        .map(|chunk| async move {
+                        .map(async |chunk| {
                             let chunk_path = chunk.path().await?;
-                            Ok(client_relative_path_ref
+                            Ok(client_relative_path
                                 .get_path_to(&chunk_path)
                                 .context("client chunk entry path must be inside the client root")?
                                 .into())
@@ -80,9 +103,9 @@ impl BuildManifest {
             .polyfill_files
             .iter()
             .copied()
-            .map(|chunk| async move {
+            .map(async |chunk| {
                 let chunk_path = chunk.path().await?;
-                Ok(client_relative_path_ref
+                Ok(client_relative_path
                     .get_path_to(&chunk_path)
                     .context("failed to resolve client-relative path to polyfill")?
                     .into())
@@ -94,9 +117,9 @@ impl BuildManifest {
             .root_main_files
             .iter()
             .copied()
-            .map(|chunk| async move {
+            .map(async |chunk| {
                 let chunk_path = chunk.path().await?;
-                Ok(client_relative_path_ref
+                Ok(client_relative_path
                     .get_path_to(&chunk_path)
                     .context("failed to resolve client-relative path to root_main_file")?
                     .into())
@@ -111,20 +134,63 @@ impl BuildManifest {
             ..Default::default()
         };
 
-        let chunks: Vec<ReadRef<OutputAssets>> = self.pages.values().try_join().await?;
+        Ok(AssetContent::file(
+            File::from(serde_json::to_string_pretty(&manifest)?).into(),
+        ))
+    }
+}
 
-        let references = chunks
+#[derive(Debug)]
+#[turbo_tasks::value(shared)]
+pub struct ClientBuildManifest {
+    pub output_path: FileSystemPath,
+    pub client_relative_path: FileSystemPath,
+
+    pub pages: FxIndexMap<RcStr, ResolvedVc<Box<dyn OutputAsset>>>,
+}
+
+#[turbo_tasks::value_impl]
+impl OutputAsset for ClientBuildManifest {
+    #[turbo_tasks::function]
+    async fn path(&self) -> Vc<FileSystemPath> {
+        self.output_path.clone().cell()
+    }
+
+    #[turbo_tasks::function]
+    async fn references(&self) -> Result<Vc<OutputAssets>> {
+        let chunks: Vec<ResolvedVc<Box<dyn OutputAsset>>> = self.pages.values().copied().collect();
+        Ok(Vc::cell(chunks))
+    }
+}
+
+#[turbo_tasks::value_impl]
+impl Asset for ClientBuildManifest {
+    #[turbo_tasks::function]
+    async fn content(&self) -> Result<Vc<AssetContent>> {
+        let client_relative_path = &self.client_relative_path;
+
+        let manifest: FxIndexMap<RcStr, Vec<RcStr>> = self
+            .pages
+            .iter()
+            .map(async |(k, chunk)| {
+                Ok((
+                    k.clone(),
+                    vec![
+                        client_relative_path
+                            .get_path_to(&*chunk.path().await?)
+                            .context("client chunk entry path must be inside the client root")?
+                            .into(),
+                    ],
+                ))
+            })
+            .try_join()
+            .await?
             .into_iter()
-            .flat_map(|c| c.into_iter().copied()) // once again, rustc struggles here
-            .chain(self.root_main_files.iter().copied())
-            .chain(self.polyfill_files.iter().copied())
             .collect();
 
-        Ok(Vc::upcast(VirtualOutputAsset::new_with_references(
-            output_path,
-            AssetContent::file(File::from(serde_json::to_string_pretty(&manifest)?).into()),
-            Vc::cell(references),
-        )))
+        Ok(AssetContent::file(
+            File::from(serde_json::to_string_pretty(&manifest)?).into(),
+        ))
     }
 }
 
@@ -293,6 +359,11 @@ pub struct ActionManifestEntry<'a> {
     pub workers: FxIndexMap<&'a str, ActionManifestWorkerEntry<'a>>,
 
     pub layer: FxIndexMap<&'a str, ActionLayer>,
+
+    #[serde(rename = "exportedName")]
+    pub exported_name: &'a str,
+
+    pub filename: &'a str,
 }
 
 #[derive(Serialize, Debug)]
@@ -301,13 +372,16 @@ pub struct ActionManifestWorkerEntry<'a> {
     pub module_id: ActionManifestModuleId<'a>,
     #[serde(rename = "async")]
     pub is_async: bool,
+    #[serde(rename = "exportedName")]
+    pub exported_name: &'a str,
+    pub filename: &'a str,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum ActionManifestModuleId<'a> {
     String(&'a str),
-    Number(f64),
+    Number(u64),
 }
 
 #[derive(
@@ -413,83 +487,10 @@ pub struct FontManifestEntry {
     pub content: RcStr,
 }
 
-#[derive(Default, Debug)]
-pub struct AppBuildManifest {
-    pub pages: FxIndexMap<RcStr, ResolvedVc<OutputAssets>>,
-}
-
-impl AppBuildManifest {
-    pub async fn build_output(
-        self,
-        output_path: Vc<FileSystemPath>,
-        client_relative_path: Vc<FileSystemPath>,
-    ) -> Result<Vc<Box<dyn OutputAsset>>> {
-        let client_relative_path_ref = &*client_relative_path.await?;
-
-        #[derive(Serialize)]
-        #[serde(rename_all = "camelCase")]
-        pub struct SerializedAppBuildManifest {
-            pub pages: FxIndexMap<RcStr, Vec<RcStr>>,
-        }
-
-        let pages: Vec<(RcStr, Vec<RcStr>)> = self
-            .pages
-            .iter()
-            .map(|(k, chunks)| async move {
-                Ok((
-                    k.clone(),
-                    chunks
-                        .await?
-                        .iter()
-                        .copied()
-                        .map(|chunk| async move {
-                            let chunk_path = chunk.path().await?;
-                            Ok(client_relative_path_ref
-                                .get_path_to(&chunk_path)
-                                .context("client chunk entry path must be inside the client root")?
-                                .into())
-                        })
-                        .try_join()
-                        .await?,
-                ))
-            })
-            .try_join()
-            .await?;
-
-        let manifest = SerializedAppBuildManifest {
-            pages: FxIndexMap::from_iter(pages.into_iter()),
-        };
-
-        let references = self.pages.values().try_join().await?;
-
-        let references = references
-            .into_iter()
-            .flat_map(|c| c.into_iter().copied())
-            .collect();
-
-        Ok(Vc::upcast(VirtualOutputAsset::new_with_references(
-            output_path,
-            AssetContent::file(File::from(serde_json::to_string_pretty(&manifest)?).into()),
-            Vc::cell(references),
-        )))
-    }
-}
-
-// TODO(alexkirsz) Unify with the one for dev.
-#[derive(Serialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct ClientBuildManifest<'a> {
-    #[serde(rename = "__rewrites")]
-    pub rewrites: &'a Rewrites,
-
-    pub sorted_pages: &'a [RcStr],
-
-    #[serde(flatten)]
-    pub pages: FxIndexMap<RcStr, Vec<&'a str>>,
-}
-
 #[cfg(test)]
 mod tests {
+    use turbo_rcstr::rcstr;
+
     use super::*;
 
     #[test]
@@ -500,20 +501,20 @@ mod tests {
                 locale: false,
                 has: None,
                 missing: None,
-                original_source: "".into(),
+                original_source: rcstr!(""),
             },
             MiddlewareMatcher {
-                regexp: Some(".*".into()),
+                regexp: Some(rcstr!(".*")),
                 locale: true,
                 has: Some(vec![RouteHas::Query {
-                    key: "foo".into(),
+                    key: rcstr!("foo"),
                     value: None,
                 }]),
                 missing: Some(vec![RouteHas::Query {
-                    key: "bar".into(),
-                    value: Some("value".into()),
+                    key: rcstr!("bar"),
+                    value: Some(rcstr!("value")),
                 }]),
-                original_source: "source".into(),
+                original_source: rcstr!("source"),
             },
         ];
 

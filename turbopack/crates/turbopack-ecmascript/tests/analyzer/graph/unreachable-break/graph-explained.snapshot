@@ -1,0 +1,7 @@
+A = (...) => undefined
+
+B = (...) => undefined
+
+C = (...) => undefined
+
+v = arguments[0]

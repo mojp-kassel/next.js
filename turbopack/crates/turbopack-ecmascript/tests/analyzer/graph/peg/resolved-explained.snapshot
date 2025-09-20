@@ -694,16 +694,14 @@ operator#87 = ???*0*
 - *0* arguments[0]
   ⚠️  function calls are not analysed yet
 
-options = (???*0* | (???*1* ? ???*4* : {}))
+options = (???*0* | (???*1* ? ???*3* : {}))
 - *0* arguments[1]
   ⚠️  function calls are not analysed yet
-- *1* (???*2* !== ???*3*)
+- *1* (???*2* !== undefined)
   ⚠️  nested operation
 - *2* options
   ⚠️  circular variable reference
-- *3* unsupported expression
-  ⚠️  This value might have side effects
-- *4* options
+- *3* options
   ⚠️  circular variable reference
 
 order = ???*0*
@@ -1217,7 +1215,7 @@ peg$currPos = ???*0*
 
 peg$endExpectation = (...) => {"type": "end"}
 
-peg$fail = (...) => (undefined | FreeVar(undefined))
+peg$fail = (...) => undefined
 
 peg$literalExpectation = (...) => {"type": "literal", "text": text, "ignoreCase": ignoreCase}
 
