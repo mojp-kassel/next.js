@@ -22,7 +22,7 @@
     "react-router-dom": "7.0.2",
     "shiki": "^1.27.2",
     "typescript": "5.7.2",
-    "vega-lite": "5.23.0"
+    "vega-lite": "6.4.0"
   },
   "devDependencies": {
     "buffer": "^5.5.0||^6.0.0",
