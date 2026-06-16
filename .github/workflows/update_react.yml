@@ -2,9 +2,12 @@ name: Update React
 
 on:
   schedule:
-    # At 40 minutes past 16:00 on Mon, Tue, Wed, Thu, and Fri
-    # i.e. 30min past React nightlies: https://github.com/facebook/react/blob/941e1b4a0a81ca3d5f2ac6ef35682e2f8e96dae1/.github/workflows/runtime_prereleases_nightly.yml#L6
-    # TODO: automatically trigger on React release
+    # CRON SCHEDULE OPTIONS:
+    # - "0 10 * * 1" → Every Monday at 10:00 UTC
+    # - "0 16 * * MON-FRI" → Every weekday at 16:00 UTC
+    # - "30 14 * * *" → Daily at 14:30 UTC
+    # Current: At 40 minutes past 16:00 on Mon-Fri (4:40 PM UTC)
+    # Scheduled 30min after React nightlies: https://github.com/facebook/react/blob/941e1b4a0a81ca3d5f2ac6ef35682e2f8e96dae1/.github/workflows/runtime_prereleases_nightly.yml#L6
     - cron: 40 16 * * 1,2,3,4,5
   # Allow manual runs
   workflow_dispatch:
@@ -18,14 +21,60 @@ env:
   PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
 
 jobs:
-  create-pull-request:
+  preflight-checks:
+    name: Preflight Checks
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          # Commits made with the default `GITHUB_TOKEN` won't trigger workflows.
-          # See: https://docs.github.com/en/actions/security-guides/automatic-token-authentication#using-the-github_token-in-a-workflow
+          token: ${{ secrets.RELEASE_BOT_GITHUB_TOKEN }}
+
+      - name: Validate secrets
+        run: |
+          if [ -z "${{ secrets.RELEASE_BOT_GITHUB_TOKEN }}" ]; then
+            echo "❌ RELEASE_BOT_GITHUB_TOKEN secret is not configured"
+            exit 1
+          fi
+          echo "✅ RELEASE_BOT_GITHUB_TOKEN is configured"
+
+      - name: Check Node.js version
+        run: |
+          node --version
+          npm --version
+          echo "✅ Node.js and npm are available"
+
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_LTS_VERSION }}
+          check-latest: true
+
+      - name: Verify corepack
+        run: |
+          npm i -g corepack@0.31
+          corepack enable
+          pnpm --version
+          echo "✅ pnpm is available"
+
+      - name: Quick dependency check
+        shell: bash
+        run: |
+          echo "Checking if sync-react script exists..."
+          if ! grep -q "sync-react" package.json; then
+            echo "⚠️  Warning: sync-react script not found in package.json"
+          else
+            echo "✅ sync-react script is defined"
+          fi
+
+  create-pull-request:
+    name: Create React Update PR
+    runs-on: ubuntu-latest
+    needs: preflight-checks
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
           token: ${{ secrets.RELEASE_BOT_GITHUB_TOKEN }}
 
       - name: Set Git author
@@ -46,7 +95,6 @@ jobs:
 
       - name: Install dependencies
         shell: bash
-        # Just need scripts/ but those dependencies are listed in the workspace root.
         run: pnpm install --filter .
 
       - name: Create Pull Request
@@ -54,3 +102,14 @@ jobs:
         run: pnpm sync-react --actor "${{ github.actor }}" --commit --create-pull --version "${{ inputs.version }}"
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_BOT_GITHUB_TOKEN }}
+
+      - name: Notify success
+        if: success()
+        run: echo "✅ React update PR created successfully"
+
+      - name: Notify failure
+        if: failure()
+        run: |
+          echo "❌ Failed to create React update PR"
+          echo "Check the logs above for details"
+          exit 1
