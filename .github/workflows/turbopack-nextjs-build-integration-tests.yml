@@ -1,4 +1,4 @@
-https://github.com/MoeMahhouk/gramine-sealing-key-provider.gitname: Turbopack Next.js production integration tests
+name: Turbopack Next.js production integration tests
 
 on:
   schedule:
